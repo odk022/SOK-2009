@@ -477,18 +477,149 @@ by(airquality[, 3:4], airquality$Month, cor)
 # Exercise 3.12 
 #Load the VAS pain data vas.csv from Exercise 3.8. Then do the following:
 file_path <- "C:/Users/OddVi/OneDrive/Dokumenter/Studier/SOK-2009/Fra_boka/data/vas.csv"
+vas <- read.csv(file_path, sep = ";", dec = ",", skip = 4)
 View(vas)
-str(vas)
-as.numeric(vas$VAS)
 str(vas)
 
 #1. Compute the mean VAS for each patient.
 
 aggregate(VAS ~ ID, data = vas, FUN = mean)
-by(vas$VAS, vas$ID, mean)
+
 #2. Compute the lowest and highest VAS recorded for each patient.
+aggregate(VAS ~ ID, data = vas, FUN = min)
+aggregate(VAS ~ ID, data = vas, FUN = max)
 
 #3.Compute the number of high-VAS days, defined as days where the VAS was at least 7, for each patient
+aggregate(VAS >= 7 ~ ID, data = vas, FUN = sum)
+
+# Exercise 3.13: 
+install.packages("datasauRus")
+library(datasauRus)
+str(datasaurus_dozen)
+View(datasaurus_dozen)
+
+#1.Compute the mean of x, mean of y, standard deviation of x, standard deviation 
+#y, and correlation between x and y, grouped by dataset. Are there any 
+#differences between the 12 datasets?
 
 
+aggregate(cbind(x,y) ~ dataset, data = datasaurus_dozen, FUN = mean)
+aggregate(cbind(x,y) ~ dataset, data = datasaurus_dozen, FUN = sd)
+# alle mean og sd er like
 
+by(datasaurus_dozen[, 2:3], datasaurus_dozen$dataset, cor)
+
+#2.Make a scatterplot of x against y for each dataset (use facetting!). 
+#Are there any differences between the 12 datasets?
+
+ggplot(datasaurus_dozen, aes(x,y, colour = dataset))+
+  geom_point() +
+  facet_wrap(~ dataset, ncol = 3)
+
+#
+install.packages("magrittr")
+library(magrittr)
+# Now, let’s say that we are interested in finding out what the mean wind speed
+# (in m/s rather than mph) on hot days (temperature above 80, say) in the airquality 
+# data is, aggregated by month. We could do something like this:
+
+# Extract hot days:
+airquality2 <- airquality[airquality$Temp > 80, ]
+# Convert wind speed to m/s:
+airquality2$Wind <- airquality2$Wind * 0.44704
+# Compute mean wind speed for each month:
+hot_wind_means <- aggregate(Wind ~ Month, data = airquality2,
+                            FUN = mean)
+# More compact:
+hot_wind_means <-  aggregate(Wind*0.44704 ~ Month,
+                             data = airquality[airquality$Temp > 80, ],
+                             FUN = mean)
+
+#by using pipes %>%
+# istedenfor å skrive:
+#new_variable <- function_2(function_1(your_data))
+# kan man bruke:
+#your_data %>% function_1 %>% function_2 -> new_variable
+
+# henter ut varme dager:
+subset(airquality, Temp > 80)
+#konverterer hastighet
+library(magrittr)
+inset(airquality, "Wind", value = airquality$Wind * 0.44704)
+
+# Extract hot days:
+airquality2 <- subset(airquality, Temp > 80)
+# Convert wind speed to m/s:
+airquality2 <- inset(airquality2, "Wind",
+                     value = airquality2$Wind * 0.44704)
+# Compute mean wind speed for each month:
+hot_wind_means <- aggregate(Wind ~ Month, data = airquality2,
+                            FUN = mean)
+
+# But, because we have functions to perform the operations, we can instead use
+# %>% pipes to chain them together in a pipeline. Pipes automatically send the 
+# output from the previous function as the first argument to the next, so that 
+# the data flows from left to right, which make the code more concise. They also 
+# let us refer to the output from the previous function as ., which saves even 
+# more space. The resulting code is:
+
+airquality %>%
+  subset(Temp > 80) %>% 
+  inset("Wind", value = .$Wind * 0.44704) %>%
+  aggregate(Wind ~ Month, data = ., FUN = mean) ->
+  hot_wind_means
+
+# eksempler
+# Standard solution:
+exp(log(2))
+# magrittr solution:
+2 %>% log %>% exp
+
+# add istedenfor +:
+x <- 2
+exp(x + 2)
+x %>% add(2) %>% exp
+
+# flere eksempler:
+x <- 2
+# Base solution;          magrittr solution
+exp(x - 2);               x %>% subtract(2) %>% exp
+exp(x * 2);               x %>% multiply_by(2) %>% exp
+exp(x / 2);               x %>% divide_by(2) %>% exp
+exp(x^2);                 x %>% raise_to_power(2) %>% exp
+head(airquality[,1:4]);   airquality %>% extract(,1:4) %>% head
+airquality$Temp[1:5];     airquality %>%
+  use_series(Temp) %>% extract(1:5)
+
+#liste over alle alias: ?extract
+
+# flere eksempler. 
+#If the function does not take the output from the previous 
+#function as its first argument, you can use . as a placeholder, just as we 
+#did in the airquality problem. Here is another example:
+cat(paste("The current time is ", Sys.time())))
+Sys.time() %>% paste("The current time is", .) %>% cat
+
+#Exercise 3.14
+x <- 1:8
+sqrt(mean(x))
+# med pipes
+x %>% mean %>% sqrt
+
+mean(sqrt(x))
+x %>% sqrt %>% mean
+
+sort(x^2-5)[1:2]
+x %>% raise_to_power(2) %>% subtract(5) %>% extract(1:2) 
+
+#Exercise 3.15
+age <- c(28, 48, 47, 71, 22, 80, 48, 30, 31)
+purchase <- c(20, 59, 2, 12, 22, 160, 34, 34, 29)
+visit_length <- c(5, 2, 20, 22, 12, 31, 9, 10, 11)
+bookstore <- data.frame(age, purchase, visit_length)
+
+#Add a new variable rev_per_minute which is the ratio between purchase 
+#and the visit length, using a pipe.
+
+bookstore %>% 
+  inset("rev_per_minute", value = .$purchase / .$visit_length)
