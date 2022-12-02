@@ -1,0 +1,290 @@
+---
+title: "Sok-2009, høst 2022, Gruppeeksamen"
+output: pdf_document
+author: "Kandidater: 55, 67, 68 og 96,"
+date: "2022-10-20"
+---
+
+```{r}
+#setwd( "C:/Users/hchra/OneDrive/Desktop/Pensum/SOK-2009/Sok-2009-h-st-2022-Gruppeeksamen")
+
+Sys.setlocale(locale="no_NO")
+library(tidyverse)
+library(moderndive)
+```
+
+# Oppgave 1
+
+```{r}
+load("~/Studier/SOK-2009/Sok-2009-h-st-2022-Gruppeeksamen/Bukta_data_v2.Rdata")
+
+Bukta_data <- Bukta_data %>% 
+  mutate(Inntekt = Antall * Pris)
+
+inntekt<- Bukta_data %>%
+  group_by(Ar) %>%
+  summarise(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`)
+
+deltakere<-Bukta_data %>% 
+  group_by(Ar) %>%
+  slice(which.max(Gjester)) %>% 
+  select(Ar, Gjester)
+
+tot_inntekt<- 
+  merge(x=inntekt, y=deltakere, by="Ar") %>% 
+  rename(År = Ar) %>% 
+  mutate("Inntekt/gjest" = Inntekt/Gjester)
+
+tot_inntekt <- tot_inntekt %>%
+  mutate(sum = sum(Inntekt),
+         prosent = Inntekt/sum,
+         prosent = round(prosent*100, digits = 1)) %>% 
+  select(-sum)
+
+tot_inntekt
+
+ggplot(tot_inntekt, aes(x=År,y=Inntekt, fill=År))+
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = paste0(prosent, '%')), 
+            position = position_stack(vjust = 0.5), color = "white", size = 4) +
+  scale_y_continuous(labels=scales::comma)
+
+rm(inntekt)
+rm(deltakere)
+```
+
+```{r}
+inntekt2 <- Bukta_data %>%
+  group_by(Ar, Dag)%>%
+  summarise(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`)
+
+deltakere2 <- Bukta_data %>% 
+  group_by(Ar, Dag) %>%
+  slice(which.max(Gjester)) %>% 
+  select(Ar, Gjester, Dag)
+
+dag_tot_inntekt <- 
+  left_join(inntekt2, deltakere2) %>% 
+  rename(År = Ar) %>% 
+  mutate("Inntekt/gjest" = Inntekt/Gjester)
+
+dag_tot_inntekt <- dag_tot_inntekt %>% 
+  group_by(År) %>% 
+  mutate(sum = sum(Inntekt),
+         prosent = Inntekt/sum,
+         prosent = round(prosent*100, digits = 1)) %>% 
+  select(-sum)
+
+dag_tot_inntekt
+
+ggplot(dag_tot_inntekt, aes(x=År, Inntekt, fill = Dag)) +
+  geom_col() +
+  geom_text(aes(label = paste0(prosent, '%')), 
+            position = position_stack(vjust = 0.5), color = "white", size = 4) +
+  scale_y_continuous(labels=scales::comma)
+
+ggplot(dag_tot_inntekt, aes(x=År,y=Inntekt,fill=Dag))+
+  geom_col(width=.5, position = "dodge")+
+  scale_y_continuous(labels=scales::comma)
+
+rm(inntekt2)
+rm(deltakere2)
+```
+
+Fra disse to tabellene, ser det ut til å være noe forskjeller mellom årene og/eller dagene for hvert år? Vi kan ennå ikke si noe om det er statistisk signifikant, men ser du noen trender i dataene?
+
+2016 har mye lavere inntekt enn de tre andre årene. 2017, 18 og 19 har relativt lik inntekt. Torsdag er den dagen med lavest inntekt hvert år, lørdag har mest inntekt hvert år
+
+# Oppgave 2.1
+
+```{r}
+Drikkevarer <- Bukta_data %>% 
+  group_by(Produkt) %>% 
+  summarise(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`)
+
+Drikkevarer <- Drikkevarer %>%
+  mutate(prosent = round(Inntekt/sum(Inntekt)*100, digits =1))
+
+Drikkevarer
+
+ggplot(Drikkevarer, aes(x=Produkt,y=Inntekt, fill = Inntekt))+
+  geom_col(show.legend = FALSE) +
+  scale_y_continuous(labels=scales::comma) +
+  geom_text(aes(label = paste0(prosent, '%')), 
+            position = position_stack(vjust = 0.5), color = "white", size = 4)
+  
+```
+
+"Pilsner" bringer inn mest inntekt "Non alcholic" produkter bringer inn minst inntekt
+
+```{r}
+Drikke_per_år <- Bukta_data %>% 
+  group_by(Produkt, Ar) %>% 
+  summarise(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`) %>% 
+  mutate(Prosent = round(Inntekt/sum(Inntekt)*100, digits=1))
+
+ggplot(Drikke_per_år, aes(x=Ar,y=Inntekt, fill = Produkt))+
+  geom_col(width=.5, position = "dodge") +
+  scale_y_continuous(labels = scales::comma)
+```
+
+"Pilsner" mest populær hvert år "Cider" er mer populært enn "Bukta Beer" i 2017, 18 og 19. "Bukta Beer" er mer populært i 2016 "Other Beer" er mindre poplær enn "Wine" i 2016 og motsatt i 2017, 18 og 19
+
+# Oppgave 2.2
+
+```{r}
+time_tot_inntekt <- Bukta_data %>% 
+  group_by(Time) %>% 
+  summarise(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`) 
+
+time_tot_inntekt
+
+pairwise.t.test(Bukta_data$Inntekt, 
+                Bukta_data$Produkt, 
+                p.adjust.method= "holm" )
+
+pairwise.t.test(Bukta_data$Inntekt, 
+                Bukta_data$Produkt, 
+                alternative = "greater",
+                p.adjust.method= "holm" )
+
+pairwise.t.test(Bukta_data$Inntekt, 
+                Bukta_data$Produkt,
+                alternative = "less",
+                p.adjust.method= "holm" )
+```
+Alternative = "greater"
+Vi forkaster $H_0 = Ingen forskjell i salget når p-verdien er mindre enn 0.05. Dette gjelder for Pilsner vs Bukta Beer og Wine; Wine,Pilsner,Other beer vs Cider; Wine,Pilsner,Other beer vs Non alcoholic; Wine,Pilsner vs Other beer. For alle disse gjelder H_1, dvs at salget er større, dvs, at det er en signufikant forskjell i salgsinntektene. Vi beholder H_0 for Wine vs Pilsner, dvs at det er ingen signifikant forskjell i salgsinntektene mellom disse.
+
+
+# Oppgave 3.1
+
+```{r}
+min15_tot_inntekt <- Bukta_data %>% 
+  group_by(Ar, Dag, Per15min) %>%
+  summarise(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`,
+         År = Ar)
+
+min15_tot_inntekt <- min15_tot_inntekt %>% 
+  mutate(Tid = Per15min+17)
+
+torsdag <- min15_tot_inntekt %>% 
+  filter(Dag == "Torsdag")
+
+fredag <- min15_tot_inntekt %>% 
+  filter(Dag == "Fredag")
+
+lordag <- min15_tot_inntekt %>% 
+  filter(Dag == "Lordag")
+
+torsdag <- torsdag %>% 
+  ggplot(aes(x = Tid, y = Inntekt, col = År)) +
+  geom_line()+
+  labs(x = " ",
+       y = " ",
+       title = "Inntekt over tid torsdag") +
+  scale_fill_discrete(name = "År") +
+  theme(legend.key.height= unit(.1, 'cm'),
+        legend.key.width= unit(.3, 'cm'),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=5))
+
+fredag <- fredag %>% 
+  ggplot(aes(x = Tid, y = Inntekt, col = År)) +
+  geom_line()+
+  labs(x = " ",
+       y = " ",
+       title = "Inntekt over tid fredag") +
+  scale_fill_discrete(name = "År") +
+  theme(legend.key.height= unit(.1, 'cm'),
+        legend.key.width= unit(.3, 'cm'),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=5))
+
+lordag <- lordag %>% 
+  ggplot(aes(x = Tid, y = Inntekt, col = År)) +
+  geom_line()+
+  labs(x = " ",
+       y = " ",
+       title = "Inntekt over tid lørdag") +
+  scale_fill_discrete(name = "År") +
+  theme(legend.key.height= unit(.1, 'cm'),
+        legend.key.width= unit(.3, 'cm'),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=5))
+
+torsdag
+fredag
+lordag
+
+library(ggpubr)
+
+ggarrange(torsdag,
+          fredag,
+          lordag,
+          nrow = 3,
+          ncol = 1)
+```
+
+# Oppgave 3.2
+
+```{r}
+reg_inntekt <- lm(Inntekt ~ År + Dag + Per15min, data = min15_tot_inntekt)
+summary(reg_inntekt)
+```
+
+```{r}
+reg_dag <- lm(Inntekt ~ Dag, data = Bukta_data)
+summary(reg_dag)
+
+library(car)
+
+linearHypothesis(reg_dag, "DagFredag=DagLordag")
+
+reg_ar <- lm(Inntekt ~ Ar, data = Bukta_data)
+summary(reg_ar)
+
+linearHypothesis(reg_ar, "Ar2017=Ar2018")
+linearHypothesis(reg_ar, "Ar2017=Ar2019")
+linearHypothesis(reg_ar, "Ar2018=Ar2019")
+```
+
+# Oppgave 4
+
+```{r}
+min15_weather <- Bukta_data %>% 
+  group_by(Ar, Dag, Per15min, Nedbor, Luft_temperatur, Solskin, Vind, Gjester) %>%
+  summarize(sum(Inntekt)) %>%
+  rename(Inntekt = `sum(Inntekt)`,
+         År = Ar)
+
+reg_weather <- lm(Inntekt ~ År + Dag + Per15min + Nedbor + Luft_temperatur + 
+                    Solskin + Vind + Gjester, data = min15_weather)
+summary(reg_weather)
+```
+
+# Oppgave 5
+
+```{r}
+pilsdag <- Bukta_data %>% 
+  group_by(Ar) %>% 
+  filter(Dag == "Lordag",
+         Time == 20,
+         Produkt == "Pilsner") %>% 
+  summarise(sum(Antall))
+pilssnitt <- mean(pilsdag$`sum(Antall)`)
+sd <- sd(pilsdag$`sum(Antall)`)
+xqnorm(0.95, mean=pilssnitt, sd=sd,
+       return = "plot", system = "gg") %>% 
+  gf_labs(title = "Figur 9: Anbefalt antall pils tappet", x = "Antall",
+          y='density') %>% 
+  gf_theme(theme_bw())+
+  scale_y_continuous(labels = scales::comma)
+```
+
